@@ -6,11 +6,11 @@
 //
 
 import SwiftUI
-import Combine
 
 struct ContentView: View {
     @StateObject private var viewModel = WeatherViewModel()
     @State private var isCelsius = true
+    @State private var searchText = ""
 
     var body: some View {
         NavigationView {
@@ -26,8 +26,29 @@ struct ContentView: View {
                     .opacity(0.8)
 
                 VStack {
+                    TextField("Enter city", text: $searchText)
+                        .padding(.horizontal)
+                        .padding(.vertical, 15)
+                        .background(Color.white.opacity(0.5))
+                        .cornerRadius(10)
+                        .padding()
+
+                    Button(action: {
+                        viewModel.cityName = searchText
+                        viewModel.fetchWeatherData()
+                    }) {
+                        Text("Search")
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .padding()
+
                     if let weatherData = viewModel.weatherData,
-                       let emoji = weatherEmoji(for: weatherData.weather[0].description) {
+                        let description = weatherData.weather?.first?.description,
+                        let emoji = weatherEmoji(for: description) {
+
                         Text(emoji)
                             .font(.system(size: 100))
                             .frame(width: 120, height: 120)
@@ -39,54 +60,52 @@ struct ContentView: View {
                                     .stroke(Color.white, lineWidth: 2)
                             )
                             .padding()
-                    }
 
-                    TextField("Enter city name", text: $viewModel.cityName)
-                        .padding()
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        Text("Temperature: \(Int((weatherData.main?.temp ?? 0) * 9/5) + 32) °F")
+                            .padding()
+                            .foregroundColor(.white)
+                            .font(.system(size: 20, weight: .bold))
+                            .shadow(color: .black, radius: 2, x: 0, y: 0)
 
-                    Button(action: {
-                        viewModel.fetchWeatherData()
-                    }) {
-                        HStack {
-                            Image(systemName: "thermometer")
-                                .foregroundColor(.white)
-                                .imageScale(.large)
-                            Text("Get Weather")
-                                .foregroundColor(.white)
-                                .font(.headline)
+                        Text("Description: \(description)")
+                            .padding()
+                            .foregroundColor(.white)
+                            .font(.system(size: 20, weight: .bold))
+                            .shadow(color: .black, radius: 2, x: 0, y: 0)
+
+                        if let dailyForecast = viewModel.forecastData?.list {
+                            VStack(alignment: .leading) {
+                                Text("Multi-Day Forecast:")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .padding(.top)
+
+                                ForEach(dailyForecast.prefix(5), id: \.dt) { day in
+                                    if let date = day.dt {
+                                        let dayOfWeek = Calendar.current.component(.weekday, from: Date(timeIntervalSince1970: date))
+                                        let dayOfWeekString = DateFormatter().weekdaySymbols[dayOfWeek - 1]
+
+                                        if let temperature = day.main?.temp {
+                                            Text("\(dayOfWeekString): \(day.weather?.first?.description ?? "N/A"), \(Int((temperature * 9/5) + 32)) °F")
+                                                .foregroundColor(.white)
+                                                .padding(.bottom, 5)
+                                        } else {
+                                            Text("\(dayOfWeekString): N/A")
+                                                .foregroundColor(.white)
+                                                .padding(.bottom, 5)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding()
                         }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .cornerRadius(8)
-                        .shadow(radius: 2)
-                    }
-
-                    Toggle(isOn: $isCelsius) {
-                        Text("Fahrenheit")
-                            .foregroundColor(.white)
-                            .font(.headline)
-                            .shadow(color: .black, radius: 2, x: 0, y: 0)
-                    }
-                    .padding()
-
-                    if let weatherData = viewModel.weatherData {
-                        let temperature = isCelsius ? Int(weatherData.main.temp) : Int((weatherData.main.temp * 9/5) + 32)
-                        Text("Temperature: \(temperature) \(isCelsius ? "°C" : "°F")")
-                            .padding()
-                            .foregroundColor(.white)
-                            .font(.system(size: 20, weight: .bold))
-                            .shadow(color: .black, radius: 2, x: 0, y: 0)
-                        Text("Description: \(weatherData.weather[0].description)")
-                            .padding()
-                            .foregroundColor(.white)
-                            .font(.system(size: 20, weight: .bold))
-                            .shadow(color: .black, radius: 2, x: 0, y: 0)
                     }
                 }
                 .padding()
                 .navigationBarTitle("Weather App", displayMode: .inline)
+            }
+            .onAppear {
+                viewModel.fetchWeatherData()
             }
         }
     }
@@ -110,6 +129,15 @@ struct ContentView: View {
         }
     }
 }
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
+}
+
+
+
 
 
 
